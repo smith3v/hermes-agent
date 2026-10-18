@@ -60,6 +60,18 @@ class TestUserSystemdPrivateSocketPreflight:
         assert gateway_cli._wait_for_user_dbus_socket(timeout=0.1) is True
         assert calls == ["env"]
 
+    def test_wait_for_user_dbus_socket_ready_only_on_final_check_exports_env_once(self, monkeypatch):
+        calls = []
+        checks = iter([False, False, True])
+        clock = iter([0.0, 0.0, 0.5, 1.5])  # deadline at 1.0: the third check runs after it
+        monkeypatch.setattr(gateway_cli, "_ensure_user_systemd_env", lambda: calls.append("env"))
+        monkeypatch.setattr(gateway_cli, "_user_systemd_socket_ready", lambda: next(checks))
+        monkeypatch.setattr("agent.deadline.time.monotonic", lambda: next(clock))
+        monkeypatch.setattr("agent.deadline.time.sleep", lambda _s: None)
+
+        assert gateway_cli._wait_for_user_dbus_socket(timeout=1.0) is True
+        assert calls == ["env"]
+
 
 class TestSystemdServiceRefresh:
 

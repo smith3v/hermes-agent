@@ -512,6 +512,7 @@ def _run_job_script(
             except subprocess.TimeoutExpired:
                 continue
 
+        stdout_had_data = bool(stdout_raw)
         stdout = (stdout_raw or "").strip()
         stderr = (stderr_raw or "").strip()
 
@@ -528,7 +529,7 @@ def _run_job_script(
             parts = [f"Script exited with code {proc.returncode}"]
             if stderr:
                 parts.append(f"stderr:\n{stderr}")
-            if stdout:
+            if stdout_had_data:
                 parts.append(f"stdout:\n{stdout}")
             return False, "\n".join(parts)
         return True, stdout

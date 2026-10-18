@@ -147,6 +147,33 @@ def test_no_agent_typed_busy_deferral_is_a_silent_deferred_outcome(hermes_env, m
     assert saved["last_error"] is None
 
 
+def test_no_agent_whitespace_stdout_preserves_the_failure_envelope(hermes_env, monkeypatch):
+    """Whitespace-only stdout is still stdout and must prevent a typed deferral."""
+    from cron import scheduler_script
+    from tools.environments import local as local_environment
+
+    script_path = hermes_env / "scripts" / "gmail-worker.sh"
+    script_path.write_text("#!/usr/bin/env bash\nexit 0\n")
+
+    class FakeProcess:
+        returncode = 75
+
+        def communicate(self, *, timeout):
+            return (
+                " \n",
+                '{"status":"deferred","reason":"busy","next_attempt_at":null,"operator_alert":false}',
+            )
+
+    monkeypatch.setattr(scheduler_script, "_script_argv", lambda *_args: (["fake"], {}, None))
+    monkeypatch.setattr(local_environment, "build_subprocess_env", lambda **_kwargs: {})
+    monkeypatch.setattr(scheduler_script.subprocess, "Popen", lambda *_args, **_kwargs: FakeProcess())
+
+    success, output = scheduler_script._run_job_script("gmail-worker.sh")
+
+    assert success is False
+    assert "\nstdout:\n" in output
+
+
 def test_no_agent_exit_75_without_strict_deferred_envelope_is_a_failure(hermes_env):
     """Exit 75 alone is never upgraded to a deferred/nonfailure result."""
     from cron.jobs import create_job, get_job
